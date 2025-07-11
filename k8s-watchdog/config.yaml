@@ -1,0 +1,10 @@
+watch:
+  resources:
+    - pods
+  namespaces:
+    - default
+    - kube-system
+
+notifier:
+  type: stdout
+  
