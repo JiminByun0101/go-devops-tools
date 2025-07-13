@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/JiminByun0101/go-devops-tools/k8s-watchdog/config"
+	"github.com/JiminByun0101/go-devops-tools/k8s-watchdog/watcher"
 )
 
 func main() {
@@ -16,5 +17,6 @@ func main() {
 	}
 
 	fmt.Printf("Watching resources: %v in namespaces: %v\n", cfg.Watch.Resources, cfg.Watch.Namespaces)
+	watcher.WatchPods(cfg.Watch.Namespaces)
 
 }
