@@ -11,24 +11,17 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
-func WatchPods(namespaces []string) {
-	kubeconfig := clientcmd.RecommendedHomeFile
-
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		log.Fatalf("Failed to load kubeconfig: %v", err)
+func WatchPods(clientset *kubernetes.Clientset, namespaces []string) {
+	if clientset == nil {
+		log.Fatal("Clientset provided to WatchPods cannot be nil.")
 	}
-
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Fatalf("Failed to create clientset: %v", err)
-	}
+	log.Println("Starting Pod watchers for specified namespaces...")
 
 	for _, ns := range namespaces {
 		go func(namespace string) {
+			log.Printf("Setting up watcher for namespace: %s\n", namespace)
 			factory := informers.NewSharedInformerFactoryWithOptions(
 				clientset,
 				time.Minute,
@@ -49,6 +42,13 @@ func WatchPods(namespaces []string) {
 					pod := obj.(*corev1.Pod)
 					fmt.Printf("[-] Pod deleted: %s%s\n", namespace, pod.GetName())
 				},
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					oldPod := oldObj.(*corev1.Pod)
+					newPod := newObj.(*corev1.Pod)
+					if oldPod.ResourceVersion != newPod.ResourceVersion {
+						fmt.Printf("[~] Pod updated in %s: %s\n", namespace, newPod.GetName())
+					}
+				},
 			})
 
 			stopCh := make(chan struct{})
@@ -56,6 +56,7 @@ func WatchPods(namespaces []string) {
 
 			go factory.Start(stopCh)
 			factory.WaitForCacheSync(stopCh)
+			log.Printf("Cache synced for namespace: %s. Ready to watch events.\n", namespace)
 
 			<-stopCh
 		}(ns)
